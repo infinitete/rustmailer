@@ -4,12 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+argon2 = "0.5.3"
 axum = "0.8.4"
 serde = { version = "1.0.228", features = ["derive"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate"] }
 thiserror = "2.0.17"
-tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread"] }
+tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "time"] }
+tokio-rustls = "0.26.4"
+rustls-pemfile = "2.2.0"
+serde_json = "1.0.149"
+x509-parser = "0.18.0"
 
 [dev-dependencies]
 http-body-util = "0.1.3"
-serde_json = "1.0.149"
+rcgen = "0.14.5"
 tower = { version = "0.5.2", features = ["util"] }

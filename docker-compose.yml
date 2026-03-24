@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_HOST: ${APP_HOST}
+      APP_PORT: ${APP_PORT}
+      SMTP_PORT: ${SMTP_PORT}
+      SUBMISSION_PORT: ${SUBMISSION_PORT}
+      IMAP_PORT: ${IMAP_PORT}
+      IMAPS_PORT: ${IMAPS_PORT}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      TLS_CERT_DIR: ${TLS_CERT_DIR}
+    ports:
+      - '25:25'
+      - '587:587'
+      - '143:143'
+      - '993:993'
+    expose:
+      - '3000'
+    volumes:
+      - certbot-certs:/etc/letsencrypt:ro
+      - acme-webroot:/var/www/certbot
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    expose:
+      - '4173'
+
+  nginx:
+    build:
+      context: ./infra/nginx
+    depends_on:
+      - frontend
+      - server
+    environment:
+      TLS_CERT_DIR: ${TLS_CERT_DIR}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - certbot-certs:/etc/letsencrypt:ro
+      - acme-webroot:/var/www/certbot
+
+  certbot:
+    image: certbot/certbot:latest
+    entrypoint: /bin/sh /renew.sh
+    environment:
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL}
+      CERTBOT_DOMAINS: ${CERTBOT_DOMAINS}
+      CERTBOT_CERT_NAME: ${CERTBOT_CERT_NAME}
+      CERTBOT_STAGING: ${CERTBOT_STAGING}
+    volumes:
+      - certbot-certs:/etc/letsencrypt
+      - acme-webroot:/var/www/certbot
+      - ./infra/certbot/renew.sh:/renew.sh:ro
+
+volumes:
+  postgres-data:
+  certbot-certs:
+  acme-webroot:

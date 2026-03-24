@@ -1,5 +1,6 @@
 use std::env;
 use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -103,6 +104,45 @@ fn rejects_missing_database_url() {
     );
 }
 
+#[test]
+fn uses_default_protocol_ports() {
+    let _guard = lock_env();
+    let _database_url = EnvVarGuard::set("DATABASE_URL", "postgres://localhost/rustmailer_test");
+    let _admin_token = EnvVarGuard::set("ADMIN_TOKEN", "test-admin-token");
+    let _smtp_port = EnvVarGuard::unset("SMTP_PORT");
+    let _submission_port = EnvVarGuard::unset("SUBMISSION_PORT");
+    let _imap_port = EnvVarGuard::unset("IMAP_PORT");
+    let _imaps_port = EnvVarGuard::unset("IMAPS_PORT");
+
+    let config = AppConfig::from_env().unwrap();
+
+    assert_eq!(config.port, 3000);
+    assert_eq!(config.smtp_port, 2525);
+    assert_eq!(config.submission_port, 587);
+    assert_eq!(config.imap_port, 1143);
+    assert_eq!(config.imaps_port, 993);
+}
+
+#[test]
+fn uses_custom_protocol_ports() {
+    let _guard = lock_env();
+    let _database_url = EnvVarGuard::set("DATABASE_URL", "postgres://localhost/rustmailer_test");
+    let _admin_token = EnvVarGuard::set("ADMIN_TOKEN", "test-admin-token");
+    let _app_port = EnvVarGuard::set("APP_PORT", "3001");
+    let _smtp_port = EnvVarGuard::set("SMTP_PORT", "2587");
+    let _submission_port = EnvVarGuard::set("SUBMISSION_PORT", "3587");
+    let _imap_port = EnvVarGuard::set("IMAP_PORT", "1993");
+    let _imaps_port = EnvVarGuard::set("IMAPS_PORT", "2993");
+
+    let config = AppConfig::from_env().unwrap();
+
+    assert_eq!(config.port, 3001);
+    assert_eq!(config.smtp_port, 2587);
+    assert_eq!(config.submission_port, 3587);
+    assert_eq!(config.imap_port, 1993);
+    assert_eq!(config.imaps_port, 2993);
+}
+
 #[tokio::test]
 async fn serves_health_check() {
     let app = build_app(AppConfig::for_tests()).await.unwrap();
@@ -119,4 +159,21 @@ async fn serves_health_check() {
 
     assert_eq!(payload["status"], "ok");
     assert_eq!(payload["admin_token_configured"], true);
+}
+
+#[tokio::test]
+async fn missing_tls_certificate_files_do_not_fail_runtime_tls_loading() {
+    let cert_dir = std::env::temp_dir().join(format!(
+        "rustmailer-missing-certs-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let tls_manager = server::app::load_tls_manager(Some(cert_dir.as_path()))
+        .await
+        .unwrap();
+
+    assert!(tls_manager.is_none());
 }
