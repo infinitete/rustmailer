@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd -- "$HOOK_DIR/.." && pwd)
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'Error: required command "%s" is not installed or not in PATH.\n' "$1" >&2
+    exit 1
+  fi
+}
+
+printf 'Running pre-commit quality checks from %s\n' "$REPO_ROOT"
+
+require_command cargo
+require_command npm
+
+if [ ! -d "$REPO_ROOT/frontend/node_modules" ]; then
+  printf 'Error: frontend dependencies are missing. Run "cd frontend && npm install" first.\n' >&2
+  exit 1
+fi
+
+printf '==> cargo fmt --check\n'
+(
+  cd "$REPO_ROOT/server"
+  cargo fmt --check
+)
+
+printf '==> cargo test\n'
+(
+  cd "$REPO_ROOT/server"
+  cargo test
+)
+
+printf '==> npm run lint\n'
+(
+  cd "$REPO_ROOT/frontend"
+  npm run lint
+)
+
+printf '==> npm run build\n'
+(
+  cd "$REPO_ROOT/frontend"
+  npm run build
+)
+
+printf 'Pre-commit checks passed.\n'

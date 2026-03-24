@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 1 ]; then
+  printf 'Usage: %s <commit-message-file>\n' "$0" >&2
+  exit 1
+fi
+
+MESSAGE_FILE=$1
+
+if [ ! -f "$MESSAGE_FILE" ]; then
+  printf 'Error: commit message file not found: %s\n' "$MESSAGE_FILE" >&2
+  exit 1
+fi
+
+FIRST_LINE=$(sed -n '1p' "$MESSAGE_FILE")
+
+if [ -z "$FIRST_LINE" ]; then
+  printf 'Error: commit message cannot be empty.\n' >&2
+  exit 1
+fi
+
+case "$FIRST_LINE" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *)
+    exit 0
+    ;;
+esac
+
+PATTERN='^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\([[:alnum:]./_-]+\))?(!)?: .+$'
+
+if printf '%s\n' "$FIRST_LINE" | grep -Eq "$PATTERN"; then
+  exit 0
+fi
+
+printf 'Error: invalid commit message.\n' >&2
+printf 'Expected Conventional Commits, for example:\n' >&2
+printf '  feat(frontend): add mail form\n' >&2
+printf '  fix(server): handle empty address list\n' >&2
+printf '  chore: update project hooks\n' >&2
+printf 'Received: %s\n' "$FIRST_LINE" >&2
+exit 1
