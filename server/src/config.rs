@@ -26,10 +26,8 @@ impl AppConfig {
                     source,
                 })?
                 .unwrap_or(3000),
-            database_url: env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://localhost/rustmailer".to_string()),
-            admin_token: env::var("ADMIN_TOKEN")
-                .unwrap_or_else(|_| "development-admin-token".to_string()),
+            database_url: required_env("DATABASE_URL")?,
+            admin_token: required_env("ADMIN_TOKEN")?,
         })
     }
 
@@ -50,4 +48,13 @@ impl AppConfig {
                 source,
             })
     }
+}
+
+fn required_env(key: &'static str) -> Result<String, AppError> {
+    let value = env::var(key).map_err(|_| AppError::MissingRequiredEnv { key })?;
+    if value.trim().is_empty() {
+        return Err(AppError::EmptyRequiredEnv { key });
+    }
+
+    Ok(value)
 }

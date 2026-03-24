@@ -7,6 +7,10 @@ pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Debug, Error)]
 pub enum AppError {
+    #[error("missing required environment variable `{key}`")]
+    MissingRequiredEnv { key: &'static str },
+    #[error("environment variable `{key}` must not be empty")]
+    EmptyRequiredEnv { key: &'static str },
     #[error("invalid APP_PORT value `{value}`")]
     InvalidPort {
         value: String,
